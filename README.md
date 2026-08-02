@@ -35,7 +35,9 @@ Then render any patch from any directory:
 patch-viewer /absolute/path/to/change.patch
 ```
 
-Use `--no-open`, `--host`, or `--port` when you need to control how the local server starts.
+The command starts or updates a detached local viewer, opens the patch in your browser, and exits.
+Later calls reuse the same viewer process, so the CLI never occupies the terminal. Use `--no-open`,
+`--host`, or `--port` when you need to control how the local viewer starts.
 
 ## Shortcuts
 

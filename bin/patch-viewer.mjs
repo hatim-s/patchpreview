@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 
-import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { spawn } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -18,7 +20,7 @@ function usage() {
 Options:
   --host <host>  Dev server host (default: 127.0.0.1)
   --port <port>  Dev server port (default: 5173)
-  --no-open      Do not open the browser automatically
+  --no-open      Update/start the viewer without opening the browser
   -h, --help     Show this help`);
 }
 
@@ -49,26 +51,79 @@ if (!patchPath) {
   usage();
   process.exit(1);
 }
+if (!/^\d+$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
+  throw new Error(`Invalid port: ${port}`);
+}
 if (!existsSync(patchPath)) throw new Error(`Patch file not found: ${patchPath}`);
 if (!existsSync(viteEntrypoint)) {
   throw new Error(`Dependencies are missing. Run 'bun install' in ${projectDirectory}`);
 }
 
-const command = [
-  process.execPath,
-  viteEntrypoint,
-  "--host",
-  host,
-  "--port",
-  port,
-  ...(shouldOpen ? ["--open"] : []),
-];
-const child = Bun.spawn(command, {
-  cwd: projectDirectory,
-  env: { ...process.env, PATCH_VIEWER_FILE: patchPath },
-  stdin: "inherit",
-  stdout: "inherit",
-  stderr: "inherit",
-});
+const safeHost = host.replace(/[^a-zA-Z0-9.-]/g, "_");
+const stateDirectory = join(tmpdir(), "patch-viewer");
+const stateFile = join(stateDirectory, `${safeHost}-${port}.json`);
+const connectionHost = host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
+const urlHost = connectionHost.includes(":") ? `[${connectionHost}]` : connectionHost;
+const baseUrl = `http://${urlHost}:${port}`;
 
-process.exit(await child.exited);
+mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
+writeFileSync(
+  stateFile,
+  `${JSON.stringify({ patchPath, updatedAt: new Date().toISOString() })}\n`,
+  { mode: 0o600 },
+);
+
+async function viewerIsReady() {
+  try {
+    const response = await fetch(`${baseUrl}/__patch-viewer-health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(500),
+    });
+    if (!response.ok) return false;
+    const body = await response.json();
+    return body?.service === "patch-viewer";
+  } catch {
+    return false;
+  }
+}
+
+function openBrowser(url) {
+  const [command, ...commandArgs] =
+    process.platform === "darwin"
+      ? ["open", url]
+      : process.platform === "win32"
+        ? ["cmd", "/c", "start", "", url]
+        : ["xdg-open", url];
+  const browserProcess = spawn(command, commandArgs, {
+    detached: true,
+    stdio: "ignore",
+  });
+  browserProcess.on("error", () => {});
+  browserProcess.unref();
+}
+
+const wasRunning = await viewerIsReady();
+if (!wasRunning) {
+  const server = spawn(
+    process.execPath,
+    [viteEntrypoint, "--host", host, "--port", port, "--strictPort"],
+    {
+      cwd: projectDirectory,
+      detached: true,
+      env: { ...process.env, PATCH_VIEWER_STATE_FILE: stateFile },
+      stdio: "ignore",
+    },
+  );
+  server.unref();
+
+  for (let attempt = 0; attempt < 50 && !(await viewerIsReady()); attempt += 1) {
+    await Bun.sleep(100);
+  }
+  if (!(await viewerIsReady())) {
+    throw new Error(`Unable to start patch viewer at ${baseUrl}. The port may already be in use.`);
+  }
+}
+
+const viewerUrl = `${baseUrl}/?source=${Date.now()}`;
+if (shouldOpen) openBrowser(viewerUrl);
+console.log(`${wasRunning ? "Updated" : "Started"} patch viewer: ${viewerUrl}`);

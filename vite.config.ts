@@ -8,8 +8,27 @@ type InitialPatch = {
   name: string;
 };
 
+type PatchViewerState = {
+  patchPath?: string;
+};
+
+async function getConfiguredPatchPath(): Promise<string | null> {
+  const statePath = process.env.PATCH_VIEWER_STATE_FILE?.trim();
+  if (statePath) {
+    try {
+      const state = JSON.parse(await readFile(statePath, "utf8")) as PatchViewerState;
+      return state.patchPath?.trim() || null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Unable to read PATCH_VIEWER_STATE_FILE at ${statePath}: ${message}`);
+    }
+  }
+
+  return process.env.PATCH_VIEWER_FILE?.trim() || null;
+}
+
 async function readInitialPatch(): Promise<InitialPatch | null> {
-  const configuredPath = process.env.PATCH_VIEWER_FILE?.trim();
+  const configuredPath = await getConfiguredPatchPath();
   if (!configuredPath) return null;
 
   const absolutePath = resolve(process.cwd(), configuredPath);
@@ -29,7 +48,14 @@ function initialPatchPlugin(): Plugin {
     name: "patch-viewer-initial-patch",
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
-        if (request.url?.split("?")[0] !== "/initial-patch.json") {
+        const pathname = request.url?.split("?")[0];
+        if (pathname === "/__patch-viewer-health") {
+          response.setHeader("Cache-Control", "no-store");
+          response.setHeader("Content-Type", "application/json; charset=utf-8");
+          response.end(JSON.stringify({ service: "patch-viewer" }));
+          return;
+        }
+        if (pathname !== "/initial-patch.json") {
           next();
           return;
         }
@@ -41,6 +67,7 @@ function initialPatchPlugin(): Plugin {
           return;
         }
 
+        response.setHeader("Cache-Control", "no-store");
         response.setHeader("Content-Type", "application/json; charset=utf-8");
         response.end(JSON.stringify(patch));
       });
