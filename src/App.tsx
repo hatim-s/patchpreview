@@ -52,12 +52,75 @@ type FileStats = {
 };
 
 const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
+const preferencesStorageKey = "patch-viewer-preferences";
+const legacyThemeStorageKey = "patch-viewer-theme";
 
-function getStoredTheme(): ThemePreference {
-  const stored = window.localStorage.getItem("patch-viewer-theme");
-  return stored === "light" || stored === "dark" || stored === "system"
-    ? stored
-    : "system";
+type ViewerPreferences = {
+  version: 1;
+  diffStyle: DiffStyle;
+  themePreference: ThemePreference;
+  wrapLines: boolean;
+  sidebarView: SidebarView;
+  sidebarCollapsed: boolean;
+};
+
+const defaultPreferences: ViewerPreferences = {
+  version: 1,
+  diffStyle: "split",
+  themePreference: "system",
+  wrapLines: false,
+  sidebarView: "tree",
+  sidebarCollapsed: false,
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getStoredPreferences(): ViewerPreferences {
+  try {
+    const stored = window.localStorage.getItem(preferencesStorageKey);
+    const parsed: unknown = stored ? JSON.parse(stored) : null;
+    const legacyTheme = window.localStorage.getItem(legacyThemeStorageKey);
+
+    if (!isRecord(parsed)) {
+      return {
+        ...defaultPreferences,
+        themePreference:
+          legacyTheme === "light" || legacyTheme === "dark" || legacyTheme === "system"
+            ? legacyTheme
+            : defaultPreferences.themePreference,
+      };
+    }
+
+    return {
+      version: 1,
+      diffStyle:
+        parsed.diffStyle === "unified" || parsed.diffStyle === "split"
+          ? parsed.diffStyle
+          : defaultPreferences.diffStyle,
+      themePreference:
+        parsed.themePreference === "light" ||
+        parsed.themePreference === "dark" ||
+        parsed.themePreference === "system"
+          ? parsed.themePreference
+          : defaultPreferences.themePreference,
+      wrapLines:
+        typeof parsed.wrapLines === "boolean"
+          ? parsed.wrapLines
+          : defaultPreferences.wrapLines,
+      sidebarView:
+        parsed.sidebarView === "flat" || parsed.sidebarView === "tree"
+          ? parsed.sidebarView
+          : defaultPreferences.sidebarView,
+      sidebarCollapsed:
+        typeof parsed.sidebarCollapsed === "boolean"
+          ? parsed.sidebarCollapsed
+          : defaultPreferences.sidebarCollapsed,
+    };
+  } catch {
+    return defaultPreferences;
+  }
 }
 
 function nextTheme(theme: ThemePreference): ThemePreference {
@@ -86,18 +149,25 @@ function getFileId(file: FileDiffMetadata) {
 }
 
 function App() {
+  const [storedPreferences] = useState(getStoredPreferences);
   const [patch, setPatch] = useState<PatchState>({
     contents: samplePatch,
     name: "example.patch",
   });
-  const [diffStyle, setDiffStyle] = useState<DiffStyle>("split");
-  const [themePreference, setThemePreference] = useState<ThemePreference>(getStoredTheme);
+  const [diffStyle, setDiffStyle] = useState<DiffStyle>(storedPreferences.diffStyle);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(
+    storedPreferences.themePreference,
+  );
   const [systemTheme, setSystemTheme] = useState<Theme>(
     colorSchemeQuery.matches ? "dark" : "light",
   );
-  const [wrapLines, setWrapLines] = useState(false);
-  const [sidebarView, setSidebarView] = useState<SidebarView>("tree");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [wrapLines, setWrapLines] = useState(storedPreferences.wrapLines);
+  const [sidebarView, setSidebarView] = useState<SidebarView>(
+    storedPreferences.sidebarView,
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    storedPreferences.sidebarCollapsed,
+  );
   const [collapsedFileIds, setCollapsedFileIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -156,8 +226,25 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     document.documentElement.dataset.themePreference = themePreference;
-    window.localStorage.setItem("patch-viewer-theme", themePreference);
   }, [theme, themePreference]);
+
+  useEffect(() => {
+    const preferences: ViewerPreferences = {
+      version: 1,
+      diffStyle,
+      themePreference,
+      wrapLines,
+      sidebarView,
+      sidebarCollapsed,
+    };
+
+    try {
+      window.localStorage.setItem(preferencesStorageKey, JSON.stringify(preferences));
+      window.localStorage.setItem(legacyThemeStorageKey, themePreference);
+    } catch {
+      // Keep preferences usable for this session when browser storage is unavailable.
+    }
+  }, [diffStyle, sidebarCollapsed, sidebarView, themePreference, wrapLines]);
 
   const files = useMemo(() => {
     try {

@@ -1,5 +1,5 @@
 import type { FileDiffMetadata } from "@pierre/diffs";
-import type { GitStatusEntry } from "@pierre/trees";
+import { preparePresortedFileTreeInput, type GitStatusEntry } from "@pierre/trees";
 import { FileTree, useFileTree } from "@pierre/trees/react";
 import { type MouseEvent, useMemo, useRef } from "react";
 
@@ -8,6 +8,40 @@ type TreeFileListProps = {
   files: FileDiffMetadata[];
   onOpenFile: (file: FileDiffMetadata) => void;
 };
+
+type PathNode = {
+  children: Map<string, PathNode>;
+  filePath?: string;
+};
+
+function orderPathsForTree(paths: string[]) {
+  const root: PathNode = { children: new Map() };
+
+  for (const path of paths) {
+    const segments = path.split("/");
+    let node = root;
+
+    for (const segment of segments) {
+      let child = node.children.get(segment);
+      if (!child) {
+        child = { children: new Map() };
+        node.children.set(segment, child);
+      }
+      node = child;
+    }
+
+    node.filePath = path;
+  }
+
+  const orderedPaths: string[] = [];
+  const visit = (node: PathNode) => {
+    if (node.filePath) orderedPaths.push(node.filePath);
+    for (const child of node.children.values()) visit(child);
+  };
+
+  visit(root);
+  return orderedPaths;
+}
 
 function getFileId(file: FileDiffMetadata) {
   return `${file.prevName ?? ""}->${file.name}`;
@@ -46,9 +80,13 @@ export function TreeFileList({
     () => files.map((file) => ({ path: file.name, status: getGitStatus(file) })),
     [files],
   );
+  const preparedInput = useMemo(
+    () => preparePresortedFileTreeInput(orderPathsForTree(files.map((file) => file.name))),
+    [files],
+  );
 
   const { model } = useFileTree({
-    paths: files.map((file) => file.name),
+    preparedInput,
     density: "compact",
     flattenEmptyDirectories: true,
     gitStatus,
