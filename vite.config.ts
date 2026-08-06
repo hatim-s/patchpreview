@@ -8,23 +8,23 @@ type InitialPatch = {
   name: string;
 };
 
-type PatchViewerState = {
+type PatchPreviewState = {
   patchPath?: string;
 };
 
 async function getConfiguredPatchPath(): Promise<string | null> {
-  const statePath = process.env.PATCH_VIEWER_STATE_FILE?.trim();
+  const statePath = process.env.PATCHPREVIEW_STATE_FILE?.trim();
   if (statePath) {
     try {
-      const state = JSON.parse(await readFile(statePath, "utf8")) as PatchViewerState;
+      const state = JSON.parse(await readFile(statePath, "utf8")) as PatchPreviewState;
       return state.patchPath?.trim() || null;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      throw new Error(`Unable to read PATCH_VIEWER_STATE_FILE at ${statePath}: ${message}`);
+      throw new Error(`Unable to read PATCHPREVIEW_STATE_FILE at ${statePath}: ${message}`);
     }
   }
 
-  return process.env.PATCH_VIEWER_FILE?.trim() || null;
+  return process.env.PATCHPREVIEW_FILE?.trim() || null;
 }
 
 async function readInitialPatch(): Promise<InitialPatch | null> {
@@ -39,20 +39,20 @@ async function readInitialPatch(): Promise<InitialPatch | null> {
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Unable to read PATCH_VIEWER_FILE at ${absolutePath}: ${message}`);
+    throw new Error(`Unable to read PATCHPREVIEW_FILE at ${absolutePath}: ${message}`);
   }
 }
 
 function initialPatchPlugin(): Plugin {
   return {
-    name: "patch-viewer-initial-patch",
+    name: "patchpreview-initial-patch",
     configureServer(server) {
       server.middlewares.use(async (request, response, next) => {
         const pathname = request.url?.split("?")[0];
-        if (pathname === "/__patch-viewer-health") {
+        if (pathname === "/__patchpreview-health") {
           response.setHeader("Cache-Control", "no-store");
           response.setHeader("Content-Type", "application/json; charset=utf-8");
-          response.end(JSON.stringify({ service: "patch-viewer" }));
+          response.end(JSON.stringify({ service: "patchpreview" }));
           return;
         }
         if (pathname !== "/initial-patch.json") {

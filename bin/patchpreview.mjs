@@ -15,7 +15,7 @@ let shouldOpen = true;
 let patchPath = "";
 
 function usage() {
-  console.log(`Usage: patch-viewer <file.patch> [options]
+  console.log(`Usage: patchpreview <file.patch> [options]
 
 Options:
   --host <host>  Dev server host (default: 127.0.0.1)
@@ -60,7 +60,7 @@ if (!existsSync(viteEntrypoint)) {
 }
 
 const safeHost = host.replace(/[^a-zA-Z0-9.-]/g, "_");
-const stateDirectory = join(tmpdir(), "patch-viewer");
+const stateDirectory = join(tmpdir(), "patchpreview");
 const stateFile = join(stateDirectory, `${safeHost}-${port}.json`);
 const connectionHost = host === "0.0.0.0" || host === "::" ? "127.0.0.1" : host;
 const urlHost = connectionHost.includes(":") ? `[${connectionHost}]` : connectionHost;
@@ -75,13 +75,13 @@ writeFileSync(
 
 async function viewerIsReady() {
   try {
-    const response = await fetch(`${baseUrl}/__patch-viewer-health`, {
+    const response = await fetch(`${baseUrl}/__patchpreview-health`, {
       cache: "no-store",
       signal: AbortSignal.timeout(500),
     });
     if (!response.ok) return false;
     const body = await response.json();
-    return body?.service === "patch-viewer";
+    return body?.service === "patchpreview";
   } catch {
     return false;
   }
@@ -110,7 +110,7 @@ if (!wasRunning) {
     {
       cwd: projectDirectory,
       detached: true,
-      env: { ...process.env, PATCH_VIEWER_STATE_FILE: stateFile },
+      env: { ...process.env, PATCHPREVIEW_STATE_FILE: stateFile },
       stdio: "ignore",
     },
   );
@@ -120,10 +120,10 @@ if (!wasRunning) {
     await Bun.sleep(100);
   }
   if (!(await viewerIsReady())) {
-    throw new Error(`Unable to start patch viewer at ${baseUrl}. The port may already be in use.`);
+    throw new Error(`Unable to start PatchPreview at ${baseUrl}. The port may already be in use.`);
   }
 }
 
 const viewerUrl = `${baseUrl}/?source=${Date.now()}`;
 if (shouldOpen) openBrowser(viewerUrl);
-console.log(`${wasRunning ? "Updated" : "Started"} patch viewer: ${viewerUrl}`);
+console.log(`${wasRunning ? "Updated" : "Started"} PatchPreview: ${viewerUrl}`);

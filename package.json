@@ -1,14 +1,14 @@
 {
-  "name": "patch-viewer",
+  "name": "patchpreview",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "patch-viewer": "./bin/patch-viewer.mjs"
+    "patchpreview": "./bin/patchpreview.mjs"
   },
   "scripts": {
     "dev": "vite",
-    "view": "bun bin/patch-viewer.mjs",
+    "view": "bun bin/patchpreview.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b"

@@ -1,4 +1,4 @@
-# Patch Viewer
+# PatchPreview
 
 A generic local React viewer for unified `.patch` and `.diff` files, powered by
 [Diffs](https://diffs.com) and [Trees](https://trees.software).
@@ -6,17 +6,18 @@ A generic local React viewer for unified `.patch` and `.diff` files, powered by
 ## Run
 
 ```bash
-cd tools/patch-viewer
+git clone https://github.com/hatim-s/patchpreview.git
+cd patchpreview
 bun install
 bun run dev
 ```
 
 The app starts with a small example. Open, drop, or paste any unified patch to replace it.
 
-To start with a specific patch, pass its path through `PATCH_VIEWER_FILE`:
+To start with a specific patch, pass its path through `PATCHPREVIEW_FILE`:
 
 ```bash
-PATCH_VIEWER_FILE=/absolute/path/to/change.patch bun run dev
+PATCHPREVIEW_FILE=/absolute/path/to/change.patch bun run dev
 ```
 
 The path can point to any patch and has no repository-specific convention.
@@ -32,7 +33,7 @@ bun link
 Then render any patch from any directory:
 
 ```bash
-patch-viewer /absolute/path/to/change.patch
+patchpreview /absolute/path/to/change.patch
 ```
 
 The command starts or updates a detached local viewer, opens the patch in your browser, and exits.
@@ -55,4 +56,4 @@ bun run build
 bun run preview
 ```
 
-Set `PATCH_VIEWER_FILE` during the build to include that patch as the initial document.
+Set `PATCHPREVIEW_FILE` during the build to include that patch as the initial document.

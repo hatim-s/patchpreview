@@ -52,7 +52,8 @@ type FileStats = {
 };
 
 const colorSchemeQuery = window.matchMedia("(prefers-color-scheme: dark)");
-const preferencesStorageKey = "patch-viewer-preferences";
+const preferencesStorageKey = "patchpreview-preferences";
+const legacyPreferencesStorageKey = "patch-viewer-preferences";
 const legacyThemeStorageKey = "patch-viewer-theme";
 
 type ViewerPreferences = {
@@ -79,7 +80,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getStoredPreferences(): ViewerPreferences {
   try {
-    const stored = window.localStorage.getItem(preferencesStorageKey);
+    const stored =
+      window.localStorage.getItem(preferencesStorageKey) ??
+      window.localStorage.getItem(legacyPreferencesStorageKey);
     const parsed: unknown = stored ? JSON.parse(stored) : null;
     const legacyTheme = window.localStorage.getItem(legacyThemeStorageKey);
 
@@ -240,7 +243,8 @@ function App() {
 
     try {
       window.localStorage.setItem(preferencesStorageKey, JSON.stringify(preferences));
-      window.localStorage.setItem(legacyThemeStorageKey, themePreference);
+      window.localStorage.removeItem(legacyPreferencesStorageKey);
+      window.localStorage.removeItem(legacyThemeStorageKey);
     } catch {
       // Keep preferences usable for this session when browser storage is unavailable.
     }
@@ -453,7 +457,7 @@ function App() {
         <div className="header-identity">
           <h1 className="wordmark">
             <FilesIcon />
-            <span>patch viewer</span>
+            <span>patchpreview</span>
           </h1>
           <div className="patch-identity">
             <strong title={patch.name}>{patch.name}</strong>
