@@ -3,10 +3,9 @@
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 
-const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const projectDirectory = resolve(import.meta.dir, "..");
 const viteEntrypoint = resolve(projectDirectory, "node_modules/vite/bin/vite.js");
 const args = process.argv.slice(2);
 let host = "127.0.0.1";
